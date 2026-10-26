@@ -464,8 +464,16 @@ st.markdown("""
 
 with st.sidebar:
     st.header("⚙️ Settings")
-    api_key = st.text_input("Mistral API key", type="password",
-                            value=os.getenv("MISTRAL_API_KEY", ""))
+    try:
+        secret_key = st.secrets.get("MISTRAL_API_KEY", "")  # Streamlit Cloud secrets
+    except Exception:
+        secret_key = ""
+    secret_key = secret_key or os.getenv("MISTRAL_API_KEY", "")
+    if secret_key:
+        api_key = secret_key  # never displayed in the interface
+        st.success("🔑 Mistral API key loaded")
+    else:
+        api_key = st.text_input("Mistral API key", type="password")
     k = st.slider("Number of segments", 3, 6, 5)
     st.markdown("---")
     st.markdown("**Building blocks**")
@@ -574,99 +582,4 @@ with tab3:
             st.markdown(f"**🎯 Priority target:** {s['priority_segment']}")
 
             res["LLM intent (/10)"] = res["purchase_intent"]
-            res["HF sentiment (/10)"] = res["hf_stars"] * 2
-            fig = px.bar(res, x="Persona", y=["LLM intent (/10)", "HF sentiment (/10)"],
-                         barmode="group", title="Consistency check: LLM vs Hugging Face",
-                         color_discrete_sequence=["#5B3DF5", "#F59E0B"])
-            fig.update_layout(legend_title_text="", xaxis_title="", yaxis_title="Score /10",
-                              yaxis_range=[0, 10], plot_bgcolor="#FAFAFC")
-            st.plotly_chart(fig)
-
-            a, b, c = st.columns(3)
-            a.markdown(box("💪 Strengths", s["strengths"], "#E7F8F1"), unsafe_allow_html=True)
-            b.markdown(box("⚠️ Risks", s["risks"], "#FDECEC"), unsafe_allow_html=True)
-            c.markdown(box("🛠️ Recommendations", s["improvements"], "#F1EEFF"),
-                       unsafe_allow_html=True)
-        else:
-            int_a = (res["intent_a"] * weights).sum()
-            int_b = (res["intent_b"] * weights).sum()
-            share_a = weights[res["preference"] == "A"].sum()
-            winner = s["winner"]
-            c1, c2, c3 = st.columns(3)
-            c1.markdown(kpi("Intent for version A", f"{int_a:.1f}/10",
-                            "weighted by segment size", "#5B3DF5"), unsafe_allow_html=True)
-            c2.markdown(kpi("Intent for version B", f"{int_b:.1f}/10",
-                            "weighted by segment size", "#EC4899"), unsafe_allow_html=True)
-            c3.markdown(kpi("Customers preferring A", f"{share_a:.0%}",
-                            f"vs {1 - share_a:.0%} for B"), unsafe_allow_html=True)
-            st.write("")
-            st.markdown(f"**🏆 Winning version: {winner}** · {s['why']}")
-            st.markdown(f"**🟣 Prefer A:** {s['segments_a']}")
-            st.markdown(f"**🩷 Prefer B:** {s['segments_b']}")
-
-            res["Version A"] = res["intent_a"]
-            res["Version B"] = res["intent_b"]
-            fig = px.bar(res, x="Persona", y=["Version A", "Version B"], barmode="group",
-                         title="Purchase intent by persona",
-                         color_discrete_sequence=["#5B3DF5", "#EC4899"])
-            fig.update_layout(legend_title_text="", xaxis_title="", yaxis_title="Score /10",
-                              yaxis_range=[0, 10], plot_bgcolor="#FAFAFC")
-            st.plotly_chart(fig)
-            st.caption(f"Hugging Face check: average sentiment {res['hf_stars_a'].mean():.1f}/5 "
-                       f"for A and {res['hf_stars_b'].mean():.1f}/5 for B.")
-            st.markdown(box(f"🛠️ Recommendations for version {winner}", s["improvements"],
-                            "#F1EEFF"), unsafe_allow_html=True)
-
-        st.markdown(f'<div class="ff-slogan">💬 “{esc(s["slogan"])}”</div>',
-                    unsafe_allow_html=True)
-        st.write("")
-        st.warning("The personas are simulations: FocusFlash is designed to pre-test an idea "
-                   "quickly, not to replace a study with real consumers.")
-
-with tab4:
-    if "results" not in st.session_state:
-        st.info("Run the panel in tab 2 first.")
-    else:
-        results = st.session_state["results"]
-        idx = st.selectbox("Choose a participant", range(len(results)),
-                           format_func=lambda i: f"{results[i]['first_name']} · "
-                                                 f"{results[i]['segment_name']}")
-        r = results[idx]
-        chat = st.session_state["chats"].setdefault(idx, [])
-        review = (r["review"] if st.session_state["mode"] == "single"
-                  else f"Version A: {r['review_a']} Version B: {r['review_b']} "
-                       f"I prefer version {r['preference']}: {r['reason']}")
-        system = SYSTEM_INTERVIEW.format(first_name=r["first_name"], portrait=r["portrait"],
-                                         segment=r["segment_name"], profile=r["profile"],
-                                         product=st.session_state["product_txt"], review=review)
-
-        st.markdown(persona_card(r, st.session_state["mode"]), unsafe_allow_html=True)
-        for msg in chat:
-            with st.chat_message(msg["role"], avatar="🎤" if msg["role"] == "user" else "🙂"):
-                st.write(msg["content"])
-
-        question = None
-        qcols = st.columns(len(QUICK_QUESTIONS))
-        for qc, q in zip(qcols, QUICK_QUESTIONS):
-            if qc.button(q, key=f"q_{idx}_{q}"):
-                question = q
-        with st.form(f"interview_{idx}", clear_on_submit=True):
-            typed = st.text_input(f"Your question for {r['first_name']}")
-            if st.form_submit_button("Send") and typed.strip():
-                question = typed.strip()
-
-        if question:
-            if not api_key:
-                st.error("Please add your Mistral API key in the sidebar.")
-                st.stop()
-            messages = [{"role": "system", "content": system}] + chat + [
-                {"role": "user", "content": question}]
-            try:
-                with st.spinner(f"{r['first_name']} is thinking..."):
-                    answer = call_mistral(api_key, messages, temperature=0.7, json_mode=False)
-            except (requests.RequestException, RuntimeError) as e:
-                st.error(f"Mistral API error: {e}")
-                st.stop()
-            chat += [{"role": "user", "content": question},
-                     {"role": "assistant", "content": answer.strip()}]
-            st.rerun()
+            res["HF sentiment (/10)"] =
