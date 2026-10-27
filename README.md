@@ -1,10 +1,17 @@
 # ⚡ FocusFlash
 **A virtual consumer focus group in 60 seconds.**
 
+**🌐 Live demo:** https://focusflash-zuugdobaxglpfqmtaeucch.streamlit.app
+**💻 Code:** https://github.com/emmafeneau24/focusflash
+
 FocusFlash lets a marketing team pre-test a product idea in about a minute, with a panel
 of AI personas built from **real customer data**. Each persona reacts to the product, says
 whether they would buy it and at what price, and can then be interviewed one-to-one.
 The app ends with an actionable marketing summary.
+
+> **Try it now:** open the live demo, go to tab **2. Panel** and click **Run the panel**.
+> No installation or API key is needed. If the app is asleep, click
+> *"Yes, get this app back up!"* and wait about a minute.
 
 ---
 
@@ -57,15 +64,15 @@ Kaggle customer data ──► scikit-learn K-Means ──► named segments
 
 ---
 
-## 🛠️ Installation
-**Requirements:** Python 3.10 or later (tested with Python 3.13), and an internet connection.
+## 🛠️ Running it on your own computer
+**Requirements:** Python 3.10 or later (tested with Python 3.12 and 3.13), and an internet connection.
 
 1. **Get the code**
    ```
-   git clone https://github.com/<your-username>/focusflash.git
+   git clone https://github.com/emmafeneau24/focusflash.git
    cd focusflash
    ```
-   (or download the repository as a ZIP file from GitHub and unzip it)
+   (or click **Code > Download ZIP** on GitHub and unzip it)
 
 2. **Install the dependencies**
    ```
@@ -74,11 +81,8 @@ Kaggle customer data ──► scikit-learn K-Means ──► named segments
    On Windows, `py` can be used instead of `python`. The installation takes a few minutes
    (PyTorch is large). Using a virtual environment is recommended.
 
-3. **Data**: the dataset is already included in `data/marketing_campaign.csv`.
-   If it is missing, download it from
-   [Kaggle](https://www.kaggle.com/datasets/imakash3011/customer-personality-analysis)
-   and place it in the `data/` folder, or let the app download it automatically with
-   `kagglehub` (a Kaggle API key may be required).
+3. **Data**: the dataset is included in `data/marketing_campaign.csv`.
+   If it is missing, the app downloads it automatically from Kaggle with `kagglehub`.
    ⚠️ The file is tab-separated: do not open and re-save it with Excel.
 
 4. **Get a free Mistral API key**
@@ -88,21 +92,33 @@ Kaggle customer data ──► scikit-learn K-Means ──► named segments
    - Go to *API Keys* > *Create new key* and copy the key (it is only shown once).
    - Keep the key private: never put it in the code or on GitHub.
 
+5. **Run the app**
+   ```
+   python -m streamlit run app.py
+   ```
+   The app opens in your browser at http://localhost:8501. Paste your Mistral API key in the
+   sidebar. Keep the terminal open while using it.
+
+   The first panel takes longer: the Hugging Face model is downloaded (about 700 MB, only once).
+
 ---
 
-## ▶️ Running the app
+## ☁️ Deployment
+The live demo is hosted for free on **Streamlit Community Cloud**, directly from this GitHub
+repository (Python 3.12). The Mistral API key is stored as a Streamlit **secret**:
 ```
-python -m streamlit run app.py
+MISTRAL_API_KEY = "your-key"
 ```
-The app opens in your browser at http://localhost:8501. Keep the terminal open while using it.
+The app reads it with `st.secrets` (or the `MISTRAL_API_KEY` environment variable) and never
+displays it. When no secret is set, as on a local computer, the app shows a field to paste a key.
 
-The first launch takes longer: the libraries load, and the first panel downloads the
-Hugging Face model (about 700 MB, only once).
+The app goes to sleep after 12 hours without visitors; the next visitor can wake it up in about a minute.
 
 ---
 
 ## 📖 User guide
-1. **Paste your Mistral API key** in the sidebar. You can also choose the number of segments (3 to 6).
+1. **Mistral API key**: already loaded on the live demo. Locally, paste your key in the sidebar.
+   You can also choose the number of segments (3 to 6).
 2. **Tab 1 – Segments**: explore the customer segments, their size and profile.
 3. **Tab 2 – Panel**: describe your product and its price, then click **Run the panel**.
    To compare two versions, switch on **Compare two versions (A/B test)** and fill in both.
@@ -122,8 +138,10 @@ Hugging Face model (about 700 MB, only once).
 |---|---|
 | `Could not open requirements file` | The terminal is not in the project folder; on Windows, also check that the file is not called `requirements.txt.txt` |
 | `command not found: streamlit` | Use `python -m streamlit run app.py` |
-| `No module named 'torchvision'` | Run `python -m pip install torchvision` |
-| `429 Too Many Requests` | The free plan limits the request rate. The app already pauses and retries automatically; if it persists, wait a minute. On our account, `mistral-small-latest` was rate-limited, which is why the app uses `open-mistral-nemo` |
+| `No module named 'torchvision'` | Run `python -m pip install torchvision` (it is listed in `requirements.txt`) |
+| `cannot import name 'pipeline' from 'transformers'` | Transformers 5 is installed; the app needs version 4. Run `python -m pip install "transformers>=4.40,<5"` (already pinned in `requirements.txt`) |
+| `429 Too Many Requests` | The free Mistral plan limits the request rate. The app already pauses and retries automatically; if it persists, wait a minute. On our account, `mistral-small-latest` was rate-limited, which is why the app uses `open-mistral-nemo` |
+| `SyntaxError` after editing on GitHub | A line was split while copy-pasting; upload the file with *Add file > Upload files* instead |
 | `Operation not permitted` (macOS) | Move the project out of Desktop/Documents/Downloads, or allow Terminal access in *System Settings > Privacy & Security > Files and Folders* |
 | Python version too old | Install Python 3.10+ (or create an environment with `conda create -n focusflash python=3.11`) |
 
@@ -133,7 +151,7 @@ Hugging Face model (about 700 MB, only once).
 ```
 focusflash/
 ├── app.py                    # the whole application
-├── requirements.txt          # Python libraries
+├── requirements.txt          # Python libraries (transformers pinned to version 4)
 ├── README.md                 # this guide
 ├── prompts.md                # prompts used, in the app and with AI assistants
 ├── .gitignore                # files not sent to GitHub
@@ -156,17 +174,17 @@ focusflash/
   https://huggingface.co/nlptown/bert-base-multilingual-uncased-sentiment
 
 **Python libraries**
-- [Streamlit](https://github.com/streamlit/streamlit) (interface)
+- [Streamlit](https://github.com/streamlit/streamlit) (interface and hosting)
 - [pandas](https://github.com/pandas-dev/pandas) (data processing)
 - [scikit-learn](https://github.com/scikit-learn/scikit-learn) (StandardScaler, K-Means)
 - [Plotly](https://github.com/plotly/plotly.py) (charts)
 - [Transformers](https://github.com/huggingface/transformers), [PyTorch](https://github.com/pytorch/pytorch) and torchvision (Hugging Face model)
 - [Requests](https://github.com/psf/requests) (Mistral API calls)
-- [kagglehub](https://github.com/Kaggle/kagglehub) (optional automatic data download)
+- [kagglehub](https://github.com/Kaggle/kagglehub) (automatic data download if the file is missing)
 
 **AI assistants**
-Claude (Anthropic) was used to design and code the app. All prompts, in the app and with
-the assistant, are listed in [`prompts.md`](prompts.md).
+Claude (Anthropic) was used to design, code, debug and deploy the app. All prompts, in the app
+and with the assistant, are listed in [`prompts.md`](prompts.md).
 
 ---
 
@@ -180,6 +198,8 @@ the assistant, are listed in [`prompts.md`](prompts.md).
   simplifies the diversity within a segment.
 - **Model**: a small LLM was used because of the free plan's limits. A larger model would give
   richer answers.
+- **Shared quota**: the live demo uses one free Mistral key for all visitors, so several
+  simultaneous panels may briefly hit the rate limit.
 - **Privacy**: on Mistral's free Experiment plan, requests may be used to improve Mistral's models.
   Do not enter confidential product information.
 
